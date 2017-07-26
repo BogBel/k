@@ -11,13 +11,15 @@ k () {
   setopt local_options null_glob typeset_silent no_auto_pushd
 
   # Process options and get files/directories
-  typeset -a o_all o_almost_all o_human o_si o_directory o_no_directory o_no_vcs o_help
+  typeset -a o_all o_almost_all o_human o_si o_directory o_no_directory o_no_vcs o_help o_br_show
   zparseopts -E -D \
              a=o_all -all=o_all \
              A=o_almost_all -almost-all=o_almost_all \
              d=o_directory -directory=o_directory \
              h=o_human -human=o_human \
              -si=o_si \
+             B=o_br_show \
+             -branch=o_br_show \
              n=o_no_directory -no-directory=o_no_directory \
              -no-vcs=o_no_vcs \
              -help=o_help
@@ -34,6 +36,7 @@ k () {
     print -u2 "\t-h      --human         show filesizes in human-readable format"
     print -u2 "\t        --si            with -h, use powers of 1000 not 1024"
     print -u2 "\t        --no-vcs        do not get VCS status (much faster)"
+    print -u2 "\t        --branch        show current branch on every directory"
     print -u2 "\t        --help          show this help"
     return 1
   fi
@@ -283,7 +286,7 @@ k () {
     # Loop through each line of stat, pad where appropriate and do git dirty checking
     # ----------------------------------------------------------------------------
 
-    typeset REPOMARKER
+    typeset REPOMARKER BRANCH
     typeset PERMISSIONS HARDLINKCOUNT OWNER GROUP FILESIZE FILESIZE_OUT DATE NAME SYMLINK_TARGET
     typeset FILETYPE PER1 PER2 PER3 PERMISSIONS_OUTPUT STATUS
     typeset TIME_DIFF TIME_COLOR DATE_OUTPUT
@@ -297,6 +300,7 @@ k () {
 
       # We check if the result is a git repo later, so set a blank marker indication the result is not a git repo
       REPOMARKER=" "
+      BRANCH=""
       IS_DIRECTORY=0
       IS_SYMLINK=0
       IS_SOCKET=0
@@ -442,6 +446,10 @@ k () {
         # then mark appropriately
         if (( INSIDE_WORK_TREE == 0 )); then
           if (( IS_DIRECTORY )); then
+          if [[ "$o_directory" != "" && "$o_br_show" != "" ]]; then
+#            BRANCH=command git --git-dir="$GIT_TOPLEVEL/.git" --work-tree="${NAME}" branch | grep \* | cut -d ' ' -f2
+            BRANCH="$(git --git-dir="$GIT_TOPLEVEL/.git" branch | grep \* | cut -d ' ' -f2)"
+          fi
             if command git --git-dir="$GIT_TOPLEVEL/.git" --work-tree="${NAME}" diff --stat --quiet --ignore-submodules HEAD &>/dev/null # if dirty
               then REPOMARKER=$'\e[38;5;46m|\e[0m' # Show a green vertical bar for clean
               else REPOMARKER=$'\e[0;31m+\e[0m' # Show a red vertical bar if dirty
@@ -502,7 +510,7 @@ k () {
       # --------------------------------------------------------------------------
       # Display final result
       # --------------------------------------------------------------------------
-      print -r -- "$PERMISSIONS_OUTPUT $HARDLINKCOUNT $OWNER $GROUP $FILESIZE_OUT $DATE_OUTPUT $REPOMARKER $NAME $SYMLINK_TARGET"
+      print -r -- "$PERMISSIONS_OUTPUT $HARDLINKCOUNT $OWNER $GROUP $FILESIZE_OUT $DATE_OUTPUT $REPOMARKER $NAME $SYMLINK_TARGET $BRANCH"
 
       k=$((k+1)) # Bump loop index
     done
